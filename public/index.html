@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>demo</title>
+  <meta name=viewport content="user-scalable=no,initial-scale=1,maximum-scale=1,minimum-scale=1,width=device-width">
+  <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+  <style>
+    #app {
+      color: #333;
+      text-align: center;
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 2em;
+      padding-top: 5em;
+    }
+    .el-tag.status {
+      width: 6em;
+    }
+    .el-tag.card {
+      height: 5em;
+    }
+    .el-tag.left, .el-tag.card {
+      width: 3em;
+    }
+    .bet .el-card {
+      height: 130px;
+      color: #666;
+    }
+    .history {
+      display: flex;
+      flex-direction: column;
+      height: 10em;
+      flex-wrap: wrap;
+    }
+    .history div {
+      min-width: 1.6em;
+      min-height: 1.6em;
+      border-top: 1px solid #666;
+      border-right: 1px solid #666;
+      font-size: 11px;
+      color: #666;
+    }
+    .history div:nth-child(-n+8) {
+      border-left: 1px solid #666;
+    }
+    .history div:nth-child(8n) {
+      border-bottom: 1px solid #666;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <el-row type="flex" style="margin-bottom: 2em;">
+      <el-col :span="4">
+      <el-tag class="card" :effect="dealed" type="info">{{ dragon }}</el-tag>
+      </el-col>
+      <el-col :span="16">
+        <el-tag class="status" style="margin-bottom: .4em;">{{ statusLabel }}</el-tag>
+        <el-tag class="left">{{ left }}</el-tag>
+        <el-tag effect="plain">剩餘張數: {{ numberOfStub }}</el-tag>
+      </el-col>
+      <el-col :span="4">
+        <el-tag class="card" :effect="dealed" type="info">{{ tiger }}</el-tag>
+      </el-col>
+    </el-row>
+    <el-row :gutter="12" class="bet" style="margin-bottom: 2em;">
+      <el-col :span="24" style="margin-bottom: 1em">
+        <el-card v-on:click.native="place('tie')" :shadow="placing">
+          <div>和</div>
+          <div style="margin-top: 1em;">
+            <el-button type="primary" size="mini" circle :key="index" v-for="(chip, index) in pool['tie']">{{ chip }}</el-button>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="12">
+        <el-card v-on:click.native="place('dragon')" :shadow="placing">
+          <div>龍</div>
+          <div style="margin-top: 1em;">
+            <el-button type="primary" size="mini" circle :key="index" v-for="(chip, index) in pool['dragon']">{{ chip }}</el-button>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="12">
+        <el-card v-on:click.native="place('tiger')" :shadow="placing">
+          <div>虎</div>
+          <div style="margin-top: 1em;">
+            <el-button type="primary" size="mini" circle :key="index" v-for="(chip, index) in pool['tiger']">{{ chip }}</el-button>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+    <el-row type="flex" style="margin-bottom: 2em;">
+      <el-col :span="12" style="text-align: left;">
+        <el-radio-group size="small" v-model="bet">
+          <el-radio-button :key="index" v-for="(chip, index) in chips" :label="chip"></el-radio-button>
+        </el-radio-group>
+        <div style="margin-top: 2em;">
+          <el-tag effect="plain">餘額: {{ balance }}</el-tag>
+        </div>
+      </el-col>
+      <el-col :span="12" class="history">
+        <div v-for="index in 48">
+          {{ historyMap[index - 1] || '&nbsp;' }}
+        </div>
+      </el-col>
+    </el-row>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@2/dist/socket.io.js"></script>
+  <script src="https://unpkg.com/vue@2.6.12/dist/vue.js"></script>
+  <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+  <script>
+    const socket = io('/dragontiger')
+    const app = new Vue({
+      el: '#app',
+      mounted: function () {
+        socket.on('info', message => {
+          for (const [key, value] of Object.entries(message)) {
+            this[key] = value
+          }
+        })
+        socket.on('countdown', message => {
+          this.status = message.status
+          this.left = message.left
+        })
+        socket.on('draw', message => {
+          this.dragon = message.dragon
+          this.tiger = message.tiger
+          this.$message({ message: this.result(message.result), center: true, duration: 5000 })
+        })
+        socket.on('reject', message => {
+          this.$message({ message, duration: 2000, type: 'warning' })
+        })
+        socket.on('placed', message => {
+          this.balance = message.balance
+        })
+        socket.on('payout', message => {
+          this.pool = { dragon: [], tiger: [], tie: [] }
+          this.balance = message
+        })
+        socket.on('pool', message => {
+          this.pool = message
+        })
+      },
+      data: {
+        status: 'prepare',
+        statusMap: { prepare: '準備中', deal: '發牌中', place: '下注中', draw: '開牌中', payout: '派彩中' },
+        left: '-',
+        dragon: null,
+        tiger: null,
+        numberOfStub: null,
+        history: [],
+        resultMap: {
+          dragon: '龍',
+          tiger: '虎',
+          tie: '和'
+        },
+        balance: 1000,
+        bet: 10,
+        chips: [10, 100],
+        pool: { dragon: [], tiger: [], tie: [] },
+      },
+      computed: {
+        statusLabel: function () {
+          return this.statusMap[this.status]
+        },
+        dealed: function () {
+          return this.status === 'prepare' ? 'plain' : 'dark'
+        },
+        placing: function () {
+          return this.status === 'place' ? 'always' : 'never'
+        },
+        historyMap: function () {
+          return this.history.map(v => this.resultMap[v])
+        }
+      },
+      methods: {
+        place: function (area) {
+          socket.emit('place', { area, bet: this.bet })
+        },
+        result: function (value) {
+          let label
+          switch (value) {
+            case 'dragon':
+              label = '龍贏'
+              break
+            case 'tiger':
+              label = '虎贏'
+              break
+            case 'tie':
+              label = '和'
+              break
+          }
+
+          return label
+        }
+      }
+    })
+  </script>
+</body>
+</html>
