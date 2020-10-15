@@ -1,0 +1,37 @@
+syntax = "proto3";
+package gamePackage;
+
+message Package {
+    Header header = 1; //Header
+    bytes payload = 2;
+}
+
+message Header {
+    EnumMainCommand type = 1;
+}
+
+// 執行Command結果
+message CommandResult {
+    ResultCode result_code = 1;
+    string message = 2; //補充訊息
+}
+
+enum EnumMainCommand {
+    Unknown = 0;
+    SYSTEM = 1; //系統命令
+    GAME = 2; //遊戲命令
+}
+
+enum ResultCode {
+    Unknown = 0; //未知錯誤
+    Success = 1; //成功
+    BadRequest = 2; //參數錯誤
+    Fail = 3; //失敗
+}
+
+enum ErrorCode {
+    Unknown = 0;
+    OverMaxBet = 1; //超過此房間最大投注金額
+    BalanceNotEnough = 2; //餘額不足
+    TableWillClose = 3; //桌子準備關閉
+}

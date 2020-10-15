@@ -1,4 +1,6 @@
+const protobuf = require('protobufjs')
 const Card = require('./card')
+const utils = require('./utils')
 const HISTORY_SIZE = 48
 const odds = {
   dragon: 2,
@@ -14,7 +16,8 @@ const walkthroughInit = {
 }
 
 class Dragontiger {
-  constructor (io) {
+  constructor ({ io, external }) {
+    this.external = external
     this.status = 'prepare'
     this.dragon = this.tiger = this.result = null
     this.card = new Card(8)
@@ -28,7 +31,14 @@ class Dragontiger {
 
   start (io) {
     this.io = io.of('/dragontiger')
-    this.io.use((socket, next) => {
+    this.io.use(async (socket, next) => {
+      const { platformId, token } = socket.handshake.query
+      const player = await this.external.login({ platformId, token })
+      if (!player) {
+        return
+      }
+
+      socket.player = player
       next()
     })
   }
@@ -36,9 +46,16 @@ class Dragontiger {
   waitForClients () {
     this.io.on('connection', socket => {
       console.info('connected')
-      socket.balance = 1000
+      socket.emit('onData', socket.player)
+
+      const payload = {
+        ...socket.player,
+        float_digits: 0,
+      }
+      socket.emit('onData', utils.encode({ message: 'systemProto.Welcome', payload }))
+
       this.pool[socket.id] = { dragon: [], tiger: [], tie: [] }
-      const info = { status: this.status, numberOfStub: this.card.stub.length, history: this.history, balance: socket.balance }
+      const info = { status: this.status, numberOfStub: this.card.stub.length, history: this.history, balance: socket.player.balance }
       if (this.status === 'payout') {
         info.dragon = this.dragon
         info.tiger = this.tiger
@@ -56,13 +73,21 @@ class Dragontiger {
           socket.emit('reject', '非下注階段')
           return
         }
-        if (message.bet > socket.balance) {
+        if (message.bet > socket.player.balance) {
           socket.emit('reject', '餘額不足')
           return
         }
-        socket.balance -= message.bet
+        socket.player.balance -= message.bet
         this.pool[socket.id][message.area].push(message.bet)
-        socket.emit('placed', { balance: socket.balance, area: message.area, bet: message.bet })
+        socket.emit('placed', { balance: socket.player.balance, area: message.area, bet: message.bet })
+
+        const payload = {
+          result: { result_code: 'Success' },
+          user_betting: this.poolAmount(),
+          balance: socket.player.balance,
+        }
+        socket.emit('onData', utils.encode({ message: 'dragontigerProto.UserBetResp', payload }))
+
         this.io.emit('pool', this.poolSummary())
       })
     })
@@ -109,8 +134,8 @@ class Dragontiger {
           for (const [key, value] of Object.entries(this.pool)) {
             const prize = value[this.result].reduce((accu, curr) => accu + curr, 0) * odds[this.result]
             if (this.io.sockets[key]) {
-              this.io.sockets[key].balance += prize
-              this.io.to(key).emit('payout', this.io.sockets[key].balance)
+              this.io.sockets[key].player.balance += prize
+              this.io.to(key).emit('payout', this.io.sockets[key].player.balance)
             }
           }
         }
@@ -133,6 +158,15 @@ class Dragontiger {
       }
       return accu
     }, { dragon: [], tiger: [], tie: [] })
+  }
+
+  poolAmount () {
+    const { dragon, tiger, tie } = this.poolSummary()
+    return {
+      dragon_area: dragon.reduce((a, b) => a + b, 0),
+      tiger_area: tiger.reduce((a, b) => a + b, 0),
+      tie_area: tie.reduce((a, b) => a + b, 0),
+    }
   }
 }
 

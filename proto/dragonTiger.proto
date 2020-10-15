@@ -1,0 +1,173 @@
+syntax = "proto3";
+package dragontigerProto;
+
+import "gamePackage.proto";
+
+message CommandPackage {
+    EnumCommand command = 1;
+    bytes body = 2;
+}
+
+enum EnumCommand {
+    Unknown = 0;
+    //由server主動發出, 不需要response
+    GameStart = 1; //遊戲開始階段
+    GameBet = 2; //下注階段
+    GameAward = 3; //派獎階段
+    AreaBetAmount = 4; //各區域的下注量
+
+    //由client端發出
+    UserBetReq = 101; //玩家下注
+    UserBetResp = 102;
+    GameStatusReq = 103; //遊戲當下狀態
+    GameStatusResp = 104;
+    UserExitReq = 105; //玩家離開房間
+    UserExitResp = 106;
+    RoomInfoReq = 107; //取房間資訊
+    RoomInfoResp = 108;
+}
+
+//輸出的花色與對應的數值
+enum EnumPokeSuit {
+    unknown = 0;
+    diamond = 1;
+    club = 2;
+    heart = 3;
+    spade = 4;
+    ghost = 5;
+}
+
+enum EnumGameStatus {
+    Unknown = 0; //
+    GameStart = 1; //遊戲開始
+    GameBet = 2; //下注中
+    GameAward = 3; //派獎中
+}
+
+enum EnumBetArea {
+    Dragon = 0; //龍家
+    Tiger = 1; //虎家
+    Tie = 2; //和
+}
+
+//房間種類
+enum EnumRoomType {
+    unknown = 0;
+    Test = 1; //體驗房
+    Low = 2; //初級房
+    Middle = 3; //中級房
+    High = 4; //高級房
+    All = 5; // 全部房間
+}
+
+//撲克牌
+message Poker {
+    EnumPokeSuit suit = 1; //花色
+    uint32 point = 2; //點數
+}
+
+//區域開獎結果
+message GameResultArea {
+    bool banker = 1; //莊家
+    bool player = 2; //閒家
+    bool tie = 3; //和局
+}
+
+//開牌結果
+message GameResultPoker {
+    repeated Poker dragon = 1;
+    repeated Poker tiger = 2;
+}
+
+//取房間資訊
+message RoomInfoReq {
+    EnumRoomType room_type = 1;
+}
+
+message RoomInfoResp {
+    gamePackage.CommandResult result = 1;
+    repeated TableInfo infos = 2;
+}
+
+//單一桌子的資訊
+message TableInfo {
+    EnumRoomType room_type = 1;
+    uint64 min_bet = 2; // 最小帶入金額
+    uint64 max_bet = 3; // 最大帶入金額
+    repeated GameResultArea road = 4; //該房的路圖結果
+    string table_id = 5;
+}
+
+// 遊戲開始
+message GameStart {
+    string round_id = 1; //局號
+    uint32 game_count = 2; //第幾局
+    repeated uint32 chips = 3; //籌碼選項
+    uint32 ready_timer = 4; //剩下多久進下一階段
+}
+
+// 開始下注
+message GameBet {
+    uint32 ready_timer = 1; //剩下多久進下一階段
+    uint32 card_number = 2; //剩下牌數
+    uint32 used_card_number = 3; //已經使用的牌數
+}
+//派獎
+message GameAward {
+    uint32 ready_timer = 1; //剩下多久進下一階段
+    GameResultArea game_result = 2; //開獎區域結果
+    GameResultPoker poker = 3; //開出的牌型
+    uint64 win_balance = 4; //玩家贏的錢
+    uint64 balance = 5; //玩家手上的錢
+}
+
+//檯面上個區域的下注量
+message AreaBetAmount {
+    uint64 dragon_area = 1; //龍區下注量
+    uint64 tiger_area = 2; //虎區下注量
+    uint64 tie_area = 3; //和局區下注量
+}
+
+//檯面上各區域的賠率
+message AreaBettingOdds {
+    uint32 dragon_area = 1; //龍區賠率
+    uint32 tiger_area = 2; //虎區賠率
+    uint32 tie_area = 3; //和局區賠率
+}
+
+// 下注
+message UserBetReq {
+    EnumBetArea area = 1; //下注區
+    uint64 amount = 2; //下注量
+}
+
+message UserBetResp {
+    gamePackage.CommandResult result = 1; //下注結果
+    AreaBetAmount user_betting = 2; //各區域的下注金額
+    uint64 balance = 3; //帳戶餘額
+}
+
+message GameStatusReq {
+    uint32 user_id = 1;
+}
+
+//當前遊戲狀態
+message GameStatusResp {
+    gamePackage.CommandResult result = 1;
+    repeated GameResultArea road = 2;
+    AreaBetAmount area_bet_amount = 3; //當前下注量
+    EnumGameStatus current_status = 4; //當前遊戲狀態
+    GameStart game_start = 5; //剛進遊戲時要知道的開始資訊
+    GameAward game_award = 6; //剛進遊戲時要知道的開獎資訊
+    AreaBettingOdds area_betting_odds = 7; //各區域賠率
+    uint32 ready_timer = 8; //此階段剩於時間
+}
+
+//主動離開桌子
+message UserExitReq {
+}
+
+//主動離開桌子
+message UserExitResp {
+    gamePackage.CommandResult result = 1;
+}

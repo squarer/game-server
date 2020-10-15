@@ -1,0 +1,65 @@
+syntax = "proto3";
+import "gamePackage.proto";
+
+package systemProto;
+
+message CommandPackage {
+    EnumCommand command = 1;
+    bytes body = 2;
+}
+
+enum EnumCommand {
+    Unknown = 0;
+    EnterRoomReq = 1; //進入房間
+    EnterRoomResp = 2; //進入房間
+    HeartBeatReq = 3; //心跳包
+    HeartBeatResp = 4; //心跳包
+    GetBalanceReq = 5; //取得餘額
+    GetBalanceResp = 6; //取得餘額
+
+    //系統主動發送
+    Disconnect = 101; //server主動斷線
+    Welcome = 102; //
+}
+
+//進入房間
+message EnterRoomReq {
+    string table_id = 1; //指定桌名
+}
+
+message EnterRoomResp {
+    gamePackage.CommandResult result = 1;
+}
+
+message HeartBeatReq {
+    bool heart = 1;
+}
+message HeartBeatResp {
+    gamePackage.CommandResult result = 1;
+}
+
+message GetBalanceReq {
+}
+
+message GetBalanceResp {
+    gamePackage.CommandResult result = 1;
+    uint64 balance = 2;
+}
+
+message Disconnect {
+    enum Code {
+        Unknown = 0; //未知錯誤
+        KickOff = 1; //後台主動踢線
+        ReLogin = 2; //重複登入
+    }
+    Code reason_code = 1;
+    string message = 2; //補充訊息
+}
+
+//玩家資訊
+message Welcome {
+    uint32 id = 1;
+    uint64 balance = 2;
+    string name = 3;
+    uint32 float_digits = 4;
+}

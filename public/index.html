@@ -109,10 +109,13 @@
   <script src="https://unpkg.com/vue@2.6.12/dist/vue.js"></script>
   <script src="https://unpkg.com/element-ui/lib/index.js"></script>
   <script>
-    const socket = io('/dragontiger')
+    const socket = io('/dragontiger', { query: 'token=token&platformId=1' })
     const app = new Vue({
       el: '#app',
       mounted: function () {
+        socket.on('onData', message => {
+          console.log(message)
+        })
         socket.on('info', message => {
           for (const [key, value] of Object.entries(message)) {
             this[key] = value
@@ -154,6 +157,7 @@
           tiger: '虎',
           tie: '和'
         },
+        player: null,
         balance: 1000,
         bet: 10,
         chips: [10, 100],

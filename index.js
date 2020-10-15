@@ -3,8 +3,9 @@ const createReadStream = require('fs').createReadStream
 const app = new Koa()
 const server = require('http').createServer(app.callback())
 const io = require('socket.io')(server)
-const Dragontiger = require('./dragontiger.js')
-const game = new Dragontiger(io)
+const Dragontiger = require('./dragontiger')
+const external = require('./external')
+const game = new Dragontiger({ io, external })
 
 app.use((ctx, next) => {
   ctx.type = 'html'
